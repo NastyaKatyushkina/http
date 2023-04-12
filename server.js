@@ -1,110 +1,69 @@
-const http = require('http');
 const Koa = require('koa');
 const { koaBody } = require('koa-body');
+const cors = require('@koa/cors');
+const uuid = require('uuid');
+
+const allTickets = [
+  {
+    id: 1,
+    name: 'Поменять краску в принтере, ком. 404',
+    description: 'Description 1',
+    status: 'closed',
+    created: '2020-01-01',
+  },
+  {
+    id: 2,
+    name: 'Переустановить винду',
+    description: 'Description 2',
+    status: 'open',
+    created: '2020-01-01',
+  },
+];
+
 const app = new Koa();
-const { v4: uuidv4 } = require('uuid');
-const Ticket = require('./Ticket');
-const TicketFull = require('./TicketFull');
+app.use(koaBody());
+app.use(cors());
 
-const tickets = [];
-const ticketsFull = [];
+// Logger
+app.use(async (ctx, next) => {
+  await next();
 
-const ticket1 = new Ticket(1, 'Поменять краску в принтере, ком. 404');
-const ticket2 = new Ticket(2, 'Переустановить Windows, ПК-Hall24');
-ticket2.status = true;
-const ticket3 = new Ticket(3, 'Установить обновление KB-XXX');
-tickets.push(ticket1, ticket2, ticket3);
-
-const ticketFull1 = new TicketFull(1, 'Поменять краску в принтере, ком. 404', 'Lorem ipsum dolor sit amet.');
-const ticketFull2 = new TicketFull(2, 'Переустановить Windows, ПК-Hall24', 'Lorem ipsum dolor sit amet consectetur, adipisicing elit. Soluta eius assumenda rem?');
-ticketFull2.status = true;
-const ticketFull3 = new TicketFull(3, 'Установить обновление KB-XXX', 'Lorem ipsum dolor, sit amet consectetur adipisicing elit.');
-ticketsFull.push(ticketFull1, ticketFull2, ticketFull3);
-
-function responceOk(ctx) {
-    ctx.response.status = 200;
-    ctx.response.set('Access-Control-Allow-Origin', '*');
-}
-
-app.use(koaBody({
-    urlencoded: true,
-    multipart: true
-}));
-
-app.use((ctx, next) => {
-    if (ctx.request.method !== 'OPTIONS') {
-        next();
-        return;
-    }
-
-    ctx.response.set('Access-Control-Allow-Origin', '*');
-    ctx.response.set('Access-Control-Allow-Methods', 'DELETE, PUT, PATCH, GET, POST');
-    ctx.response.status = 204;
+  console.log(`Method: ${ctx.method}  URL: ${ctx.url} `);
+  console.log(ctx.request);
 });
 
-app.use(async ctx => {
-    const { method } = ctx.request.query;
+app.use(async (ctx) => {
+  let id; let
+    ticket;
+  switch (ctx.request.query.method) {
+    case 'allTickets':
+      ctx.body = JSON.stringify(allTickets);
+      return;
 
-    switch (method) {
-        case 'allTickets':
-            ctx.response.body = tickets;
+    case 'ticketById':
+      id = ctx.request.query.id;
+      // eslint-disable-next-line eqeqeq
+      ticket = allTickets.find((t) => t.id == id);
+      ctx.body = JSON.stringify(ticket);
+      return;
 
-            responceOk(ctx);
-            return;
-        case 'ticketById':
-            const result = ticketsFull.find(item => item.id == ctx.request.query.id);
+    case 'createTicket':
+      // eslint-disable-next-line no-case-declarations
+      id = uuid.v4();
+      // eslint-disable-next-line no-case-declarations
+      const { name, description, status } = ctx.request.body;
+      // eslint-disable-next-line no-case-declarations
+      const created = new Date().toISOString().slice(0, 10);
+      ticket = {
+        id, name, description, status, created,
+      };
+      allTickets.push(ticket);
+      ctx.body = JSON.stringify(ticket);
+      return;
 
-            ctx.response.body = result;
-            responceOk(ctx);
-            return;
-        case 'createTicket':
-            const {name, description} = ctx.request.body;
-            const ticketId = uuidv4();
-
-            const newTicket =  new Ticket(ticketId, name);
-            tickets.push(newTicket);
-            
-            const newTicketFull =  new TicketFull(ticketId, name, description);
-            ticketsFull.push(newTicketFull);
-
-            ctx.response.body = tickets;
-            responceOk(ctx);
-            return;
-        case 'editTicket':
-            Ticket.updateTicket(tickets, ctx.request.query.id, ctx.request.body);
-            Ticket.updateTicket(ticketsFull, ctx.request.query.id, ctx.request.body);
-
-            ctx.response.body = tickets;
-            responceOk(ctx);
-            return;
-        case 'deleteTicket':
-            Ticket.deteleTicket(tickets, ctx.request.query.id);
-            Ticket.deteleTicket(ticketsFull, ctx.request.query.id);
-
-            ctx.response.body = tickets;
-            responceOk(ctx);
-            return;
-        case 'updateStatus':
-            Ticket.updateStatus(tickets, ctx.request.query.id);
-            Ticket.updateStatus(ticketsFull, ctx.request.query.id);
-
-            ctx.response.body = tickets;
-            responceOk(ctx);
-            return;
-        default:
-            ctx.response.status = 404;
-            return;
-    }
+    default:
+      ctx.response.status = 404;
+  }
 });
 
-
-const server = http.createServer(app.callback());
-const port = 7070;
-
-server.listen(port, (err) => {
-    if (err) {
-        console.log('Error occured: ', err);
-        return;
-    }
-    console.log(`Сервер слушает тебя, порт ${port}`);
-});
+app.listen(3000);
